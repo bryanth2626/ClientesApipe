@@ -15,6 +15,6 @@ namespace ClientesApipe.Data
         }
         //ORM tendra acceso al modelo cliente
         public DbSet<Cliente> Clientes { get; set; }    
-        public DbSet<Productos> Productos { get; set; }
+        public DbSet<Producto> Productos { get; set; }
     }
 }

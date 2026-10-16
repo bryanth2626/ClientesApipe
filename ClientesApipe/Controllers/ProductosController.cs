@@ -1,10 +1,9 @@
-﻿using ClientesApipe.Data;
-using ClientesApipe.Models;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System;
+﻿using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
-using System.Text;
+using System.Threading.Tasks;
+using ClientesApipe.Data;
+using Microsoft.EntityFrameworkCore;
+using ClientesApipe.Models;
 
 namespace ClientesApipe.Controllers
 {
@@ -12,119 +11,48 @@ namespace ClientesApipe.Controllers
     [Route("api/[controller]")]
     public class ProductosController : ControllerBase
     {
-
         private readonly AppDbContext _context;
 
-        // Constructor (inicializar)
+        // Constructor
         public ProductosController(AppDbContext context)
         {
             _context = context;
         }
 
-        // GET: api/Productos
+        // GET: api/productos -> Consulta todos los productos que hay
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Productos>>> Listar()
+        public async Task<ActionResult<IEnumerable<Producto>>> Listar()
         {
             var productos = await _context.Productos.AsNoTracking().ToListAsync();
             return Ok(productos);
         }
 
-        // GET: api/productos/1 -> Busca clientes por su ID
+        // GET: api/productos/1 -> Consulta un producto por su ID
         [HttpGet("{id:int}")]
-        public async Task<ActionResult<Productos>> ObtenerPorId(int id)
+        public async Task<ActionResult<Producto>> ObtenerPorId(int id)
         {
             var producto = await _context.Productos.FindAsync(id);
             if (producto == null)
             {
-                // Error 404
-                return NotFound(new { mensaje = $"No existe el cliente con ID: {id}" });
+                return NotFound(new { mensaje = $"No existe el producto con ID: {id}" });
             }
 
-            // Ok (método 200) - Eliminado el paréntesis extra al final
             return Ok(producto);
         }
 
-        // POST: api/Productos -> registrar
+        // Registrar un nuevo producto
         [HttpPost]
-        public async Task<ActionResult<Productos>> Registrar([FromBody] Productos producto)
+        public async Task<ActionResult<Producto>> Registrar([FromBody] Producto producto)
         {
-            // Evitar que el cliente envíe un ID manualmente
+            // Evitar que el usuario envíe un ID manualmente
             producto.Id = 0;
 
-            if (await _context.Productos.AnyAsync(c => c.Dni == cliente.Dni))
-            {
-                // Server error 409
-                return Conflict(new { mensaje = "Ya existe un cliente con ese DNI" });
-            }
-
             // Procedemos al registro
-            _context.Clientes.Add(cliente);
+            _context.Productos.Add(producto);
             await _context.SaveChangesAsync();
 
-            // Server code 201 (save ok)
-            return CreatedAtAction(nameof(ObtenerPorId), new { id = cliente.Id }, cliente);
+            // Retornamos el producto registrado
+            return Ok(new { mensaje = "Producto registrado con éxito", producto });
         }
-
-        // PUT: api/clientes/1 -> actualizar
-        [HttpPut("{id:int}")]
-        public async Task<IActionResult> Actualizar(int id, [FromBody] Cliente cliente)
-        {
-            if (id != cliente.Id)
-            {
-                // Server code 400
-                return BadRequest(new { mensaje = "El ID de la URL no coincide con el ID del cuerpo" });
-            }
-
-            // Validación 2: ¿Existe el id?
-            var existente = await _context.Clientes.FindAsync(id);
-
-            if (existente == null)
-            {
-                // Server code 404 - Faltaba el punto y coma (;) al final
-                return NotFound(new { mensaje = $"No existe cliente con id: {id}" });
-            }
-
-            if (await _context.Clientes.AnyAsync(c => c.Dni == cliente.Dni && c.Id != id))
-            {
-                // Server error 409
-                return Conflict(new { mensaje = "Ya existe un cliente con ese DNI" });
-            }
-
-            // Procedemos a realizar la actualización
-            existente.Id = cliente.Id;
-            existente.Apellidos = cliente.Apellidos;
-            existente.Nombres = cliente.Nombres;
-            existente.Telefono = cliente.Telefono;
-            existente.Correo = cliente.Correo;
-            existente.Dni = cliente.Dni;
-            existente.Direccion = cliente.Direccion;
-
-            // Confirmamos los cambios
-            await _context.SaveChangesAsync();
-
-            // Server Code 204
-            return NoContent();
-        }
-
-        // DELETE: api/clientes/1 -> eliminar
-        [HttpDelete("{id:int}")] // Corregido el cierre de comillas y llaves
-        public async Task<ActionResult> Eliminar(int id)
-        {
-            var cliente = await _context.Clientes.FindAsync(id);
-            if (cliente == null)
-            {
-                // Corregidas las comillas del string interpolado en el mensaje
-                return NotFound(new { mensaje = $"No existe cliente con ID: {id}" });
-            }
-
-            _context.Clientes.Remove(cliente);
-            await _context.SaveChangesAsync();
-
-            // Server Code 204 (acción ejecutada correctamente)
-            return NoContent();
-        }
-
-
-
     }
 }

@@ -7,7 +7,7 @@ using System.Text;
 namespace ClientesApipe.Models
 {
     [Table ("productos")]
-    public class Productos
+    public class Producto
     {
         [Key]
         [Column ("id")]
@@ -22,8 +22,8 @@ namespace ClientesApipe.Models
         [Column("descripcion")]
         public string Descripcion { get; set; }
 
-        [Required, StringLength(70)]
-        [Column("precio, TypeName= decimal(7,2)")]
+        [Required]
+        [Column("precio")]
         public decimal Precio { get; set; }
 
         [Required]
