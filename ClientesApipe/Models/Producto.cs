@@ -34,11 +34,5 @@ namespace ClientesApipe.Models
         [Column("numserie")]
         public string Numserie { get; set; }
 
-        
-
-
-
-
-
     }
 }
