@@ -5,10 +5,12 @@ using System.Text;
 using ClientesApipe.Data;
 using Microsoft.EntityFrameworkCore;
 using ClientesApipe.Models;
-using System.Threading.Tasks; // Asegúrate de incluir esto si marca falta de Task
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization; // Asegúrate de incluir esto si marca falta de Task
 
 namespace ClientesApipe.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")] // Faltaba cerrar la comilla en [controller]
     public class ClientesController : ControllerBase
@@ -107,11 +109,13 @@ namespace ClientesApipe.Controllers
         }
 
         // DELETE: api/clientes/1 -> eliminar
+        [Authorize(Roles ="Admin")]
         [HttpDelete("{id:int}")] // Corregido el cierre de comillas y llaves
         public async Task<ActionResult> Eliminar(int id)
         {
             var cliente = await _context.Clientes.FindAsync(id);
             if (cliente == null)
+
             {
                 // Corregidas las comillas del string interpolado en el mensaje
                 return NotFound(new { mensaje = $"No existe cliente con ID: {id}" });
