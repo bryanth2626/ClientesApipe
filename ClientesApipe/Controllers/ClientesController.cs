@@ -1,99 +1,125 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using ClientesApipe.Data;
-using Microsoft.EntityFrameworkCore;
 using ClientesApipe.Models;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization; // Asegúrate de incluir esto si marca falta de Task
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ClientesApipe.Controllers
 {
-    [Authorize]
+
+    //[Authorize]
     [ApiController]
-    [Route("api/[controller]")] // Faltaba cerrar la comilla en [controller]
+    [Route("api/[controller]")]
     public class ClientesController : ControllerBase
     {
+        //Todas las funciones GET - POST - PUT - DELETE necesitan acceso a DB (ORM)
         private readonly AppDbContext _context;
-
-        // Constructor (inicializar)
+        //Constructor (inicializar)
         public ClientesController(AppDbContext context)
         {
             _context = context;
         }
 
-        // GET: api/clientes
+        //Get: api/clientes -> retornar la lista  de clientes 
+        //async Task    : asincrono (tiene latencia
+        //IENumerable   : define un set de datos (coleccion)
+        //ActionResul   : valor a obtner (coleccion definida en el modelo
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Cliente>>> Listar()
+        public async Task<ActionResult<IEnumerable<Cliente>>> Listar([FromQuery] string? buscar)
         {
-            var clientes = await _context.Clientes.AsNoTracking().ToListAsync();
-            return Ok(clientes);
-        }
+            //algortmo basio para listar
+            // var clientes = await _context.Clientes.AsNoTracking().ToListAsync();
+            //return Ok(clientes);
 
-        // GET: api/clientes/1 -> Busca clientes por su ID
-        [HttpGet("{id:int}")]
-        public async Task<ActionResult<Cliente>> ObtenerPorId(int id)
-        {
-            var cliente = await _context.Clientes.FindAsync(id);
-            if (cliente == null)
+            //Algoritmo que permite listar o aplicar filtro
+            var consulta = _context.Clientes.AsNoTracking();
+
+            //si la varible 
+            if(!string.IsNullOrWhiteSpace(buscar))
             {
-                // Error 404
-                return NotFound(new { mensaje = $"No existe el cliente con ID: {id}" });
+                var texto = buscar.Trim();
+                consulta = consulta.Where( c =>
+                c.Apellidos.Contains(texto) ||
+                c.Nombres.Contains(texto) ||
+                c.Dni.Contains(texto)
+                    );
             }
 
-            // Ok (método 200) - Eliminado el paréntesis extra al final
+            var lista = await consulta.OrderBy(c => c.Apellidos).
+                ThenBy(c => c.Nombres).
+                Take(200)
+                .ToListAsync();
+
+            return Ok(lista);
+        }
+
+        //Get : api/clientes/1 -> Busca clientes por su id
+        [HttpGet("{id:int}")]
+        public async Task<ActionResult<Cliente>> ObtenerPorId(int id) 
+        {
+            var cliente = await _context.Clientes.FindAsync(id);
+            
+            if(cliente == null)
+            {
+                //error 404
+                return NotFound(new { mensaje = $"No existe el cliente con ID : {id}" });
+            }
+
+            //Ok (metodo 200)
             return Ok(cliente);
         }
 
-        // POST: api/clientes -> registrar
+        //POST : api/clientes -> registrar (no olvidatr en body json 
         [HttpPost]
         public async Task<ActionResult<Cliente>> Registrar([FromBody] Cliente cliente)
         {
-            // Evitar que el cliente envíe un ID manualmente
+            //Evitar que el cliente envie u  ID manualmente 
             cliente.Id = 0;
 
+            //Validar que el DNI no esta repetido...
             if (await _context.Clientes.AnyAsync(c => c.Dni == cliente.Dni))
             {
-                // Server error 409
-                return Conflict(new { mensaje = "Ya existe un cliente con ese DNI" });
+                //Error 409
+                return Conflict(new { mensaje = "Ya existe un cliente con ese dni "});
             }
 
-            // Procedemos al registro
+            //Procedemos al registro 
             _context.Clientes.Add(cliente);
             await _context.SaveChangesAsync();
 
-            // Server code 201 (save ok)
-            return CreatedAtAction(nameof(ObtenerPorId), new { id = cliente.Id }, cliente);
+            //Server code 201 (save ok) - Ejecutamos en segundo plano el buscador por id , pasamos el id entrada , modelo 
+            return CreatedAtAction(nameof(ObtenerPorId), new {    id =  cliente.Id}, cliente);
         }
 
-        // PUT: api/clientes/1 -> actualizar
+        //Put : api/cliente/1 -> actualiaar (ademas lleva un JSON en el body)
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Actualizar(int id, [FromBody] Cliente cliente)
         {
+
+            //  Validacion simple para el Id
             if (id != cliente.Id)
             {
-                // Server code 400
-                return BadRequest(new { mensaje = "El ID de la URL no coincide con el ID del cuerpo" });
+                //Serve code 400
+                return BadRequest(new { mensaje = "El ID de la url no coincide con el id del cuerpo "});
             }
 
-            // Validación 2: ¿Existe el id?
-            var existente = await _context.Clientes.FindAsync(id);
+            //Validacion 2: ¿Existe el id?
+            var existente =  await _context.Clientes.FindAsync(id); //FindAsync  buscador por el key 
 
             if (existente == null)
             {
-                // Server code 404 - Faltaba el punto y coma (;) al final
+                //server cod 404
                 return NotFound(new { mensaje = $"No existe cliente con id: {id}" });
             }
 
+            //Validacion 3: conflicto DNI repetido 
             if (await _context.Clientes.AnyAsync(c => c.Dni == cliente.Dni && c.Id != id))
             {
-                // Server error 409
-                return Conflict(new { mensaje = "Ya existe un cliente con ese DNI" });
+                //Error 409
+                return Conflict(new { mensaje = "Ya existe un cliente con ese dni " });
             }
 
-            // Procedemos a realizar la actualización
-            existente.Id = cliente.Id;
+            //Procedemos a realizar la actualizacion
             existente.Apellidos = cliente.Apellidos;
             existente.Nombres = cliente.Nombres;
             existente.Telefono = cliente.Telefono;
@@ -101,31 +127,31 @@ namespace ClientesApipe.Controllers
             existente.Dni = cliente.Dni;
             existente.Direccion = cliente.Direccion;
 
-            // Confirmamos los cambios
-            await _context.SaveChangesAsync();
+            //Ahora confirmemos los ca,mbios utlizando el contenedor "existente"
+            await _context.SaveChangesAsync(); // esta enlazado  a <<<FindAsysnc>>>
 
-            // Server Code 204
+            //Server code 204
             return NoContent();
         }
 
-        // DELETE: api/clientes/1 -> eliminar
-        [Authorize(Roles ="Admin")]
-        [HttpDelete("{id:int}")] // Corregido el cierre de comillas y llaves
-        public async Task<ActionResult> Eliminar(int id)
+        //DELETE: api/clientes/1 -> eliminar
+        //[Authorize(Roles = "Admin")]
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Eliminar(int id)
         {
             var cliente = await _context.Clientes.FindAsync(id);
             if (cliente == null)
-
             {
-                // Corregidas las comillas del string interpolado en el mensaje
-                return NotFound(new { mensaje = $"No existe cliente con ID: {id}" });
+                //server code 404
+                return NotFound(new { mensaje = $"No existe cliente con ID : {id}" });
             }
 
             _context.Clientes.Remove(cliente);
             await _context.SaveChangesAsync();
 
-            // Server Code 204 (acción ejecutada correctamente)
+            //Server code 204 (accion ejecutada correctamente)
             return NoContent();
         }
+
     }
 }

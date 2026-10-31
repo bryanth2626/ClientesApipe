@@ -1,0 +1,38 @@
+@baseUrl = http://localhost:5243
+# Cambiar el id por el devuelto al registrar.
+@id = 1
+
+### Listar
+GET {{baseUrl}}/api/proveedores
+
+### Buscar
+GET {{baseUrl}}/api/proveedores?buscar=Demo
+
+### Registrar (usar un RUC de prueba que no exista)
+POST {{baseUrl}}/api/proveedores
+Content-Type: application/json
+
+{
+  "nombre": "Proveedor Demo",
+  "ruc": "20123456789",
+  "telefono": "999888777",
+  "direccion": "Av. Principal 123"
+}
+
+### Consultar por ID
+GET {{baseUrl}}/api/proveedores/{{id}}
+
+### Actualizar
+PUT {{baseUrl}}/api/proveedores/{{id}}
+Content-Type: application/json
+
+{
+  "id": {{id}},
+  "nombre": "Proveedor Demo actualizado",
+  "ruc": "20123456789",
+  "telefono": "999888776",
+  "direccion": "Av. Principal 456"
+}
+
+### Eliminar únicamente el registro de prueba
+DELETE {{baseUrl}}/api/proveedores/{{id}}

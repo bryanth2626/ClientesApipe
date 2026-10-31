@@ -1,76 +1,65 @@
-﻿23/10/2026
+# ClientesApipe: API integrada
 
-Para validar que la API y la seguridad con JWT funcionaran correctamente, seguimos este flujo paso a paso en Postman:
+API ASP.NET Core .NET 10 para Clientes, Productos, Proveedores y autenticación de Usuarios.
 
-1. Registro de usuario: Hicimos un POST al endpoint /api/auth/registrar enviando un JSON con el username y la contraseña.
-El sistema respondió con un 200 OK confirmando la creación del usuario.
+## Qué se integró
 
-2. Inicio de sesión y obtención del Token: Con esas mismas credenciales, realizamos un POST al endpoint /api/auth/login.
-La API validó los datos y nos devolvió el token JWT firmado digitalmente.
+Se usó ClientesApipe-master.zip como estructura y nombre del proyecto y se adaptó el avance de ClientesApi.rar a los espacios de nombres ClientesApipe.
 
-3. Consulta de Clientes (GET): Probamos el endpoint protegido GET /api/clientes configurando la pestaña de autorización en Postman como Bearer Token y pegando el token generado.
-El servidor respondió con un 200 OK mostrando la lista completa de clientes.
+- Se corrigió ClientesApipe.csproj: ahora usa Microsoft.NET.Sdk.Web. Se retiraron las dependencias y el archivo de prueba vacío de NUnit del proyecto web.
+- Se incorporó el filtro buscar de Clientes y el avance de Productos del RAR.
+- Se añadió Models/Proveedor.cs, Controllers/ProveedoresController.cs y DbSet<Proveedor> en AppDbContext.
+- Se conservó la autenticación de Usuarios de ClientesApipe.
+- Se agregó el perfil HTTP de desarrollo en el puerto 5243 para AppDemoClientes.
+- Se inicializaron las propiedades string de los modelos para compilar sin advertencias de nulabilidad.
 
-4. Actualización de rol (Administrador): Como el endpoint para eliminar registros (DELETE) exigía permisos especiales ([Authorize(Roles = "Admin")]),
-fuimos a la base de datos y actualizamos el rol del usuario a Admin ejecutando la sentencia SQL:
+## Ejecutar después, en una PC con SQL Server
 
-UPDATE Usuario SET rol = 'Admin' WHERE username = 'jair';
-GO
+1. Instalar el SDK .NET 10 y usar un Visual Studio compatible con .NET 10 y Windows Forms si se quiere abrir la interfaz.
+2. En una instalación nueva, ejecutar SQL/DemoClientes_Completo.sql en SQL Server Management Studio. Crea DemoClientes y las cuatro tablas si no existen. Si ya existe la BD con las tablas originales, revisar/ejecutar SQL/Proveedores.sql. Ningún script borra o modifica tablas existentes.
+3. Ajustar ConnectionStrings:DefaultConnection en ClientesApipe/appsettings.json a la instancia SQL real. El archivo entregado usa autenticación de Windows, localhost y DemoClientes. Para SQL Express, usar Server=.\SQLEXPRESS en la cadena (en JSON escribir .\\SQLEXPRESS). Para autenticación SQL, configurar usuario/contraseña localmente; la contraseña del archivo original no se incluyó en esta entrega.
+4. Abrir ClientesApipe.slnx y ejecutar el perfil http. En consola, desde esta carpeta:
 
-5. Generación del Token de Admin y Eliminación (DELETE): Volvimos a hacer login en Postman para obtener un token actualizado que ya incluía los privilegios de administrador.
-Finalmente, armamos la petición DELETE apuntando al cliente que queríamos borrar (/api/clientes/1), le pegamos el nuevo token en la autorización y la API respondió con un 204 No Content,
-confirmando la eliminación del registro.
+```powershell
+dotnet restore
+dotnet build
+dotnet run --project ClientesApipe/ClientesApipe.csproj --launch-profile http
+```
 
----------------------------------
+La API queda en http://localhost:5243. Scalar está en http://localhost:5243/scalar/v1 durante Development.
 
-BD:
+## Proveedores: contrato de datos
 
-CREATE DATABASE Democlientes
-GO
+| SQL | C# / JSON | Tipo |
+| --- | --- | --- |
+| id | Id / id | INT, PK, IDENTITY(1,1) |
+| nombre | Nombre / nombre | VARCHAR(100), obligatorio |
+| RUC | Ruc / ruc | VARCHAR(11), 11 dígitos |
+| telefono | Telefono / telefono | VARCHAR(15), obligatorio |
+| direccion | Direccion / direccion | VARCHAR(50), opcional |
 
-USE Democlientes
-GO
+Se asumió que la tabla se llama dbo.proveedores, que SQL Server genera el ID y que direccion permite NULL, como espera la entidad del escritorio. Si la tabla real difiere, ajustar el mapeo antes de ejecutar. Ser Primary Key por sí solo no hace que id se genere automáticamente. Proveedores.sql muestra la propiedad IDENTITY para comprobarla.
 
-CREATE TABLE clientes
-(
-	id				INT IDENTITY(1,1)	PRIMARY KEY,
-	apellidos		NVARCHAR(70)		NOT NULL,
-	nombres			NVARCHAR(78)		NOT NULL,
-	telefono		NVARCHAR(9)			NOT NULL,
-	correo			NVARCHAR(150)		NOT NULL,
-	dni				CHAR(8)				NOT NULL,
-	direccion		NVARCHAR(150)		NOT NULL,
-	CONSTRAINT		uk_dni_cli			UNIQUE (dni),
-	CONSTRAINT		ck_dni_cli			CHECK (dni LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]')
-)
-GO
+El RUC se valida por formato y se rechazan duplicados al registrar o actualizar. No se consulta SUNAT ni se comprueba el dígito verificador. La verificación de duplicados está en la API, sin cambiar índices de la tabla existente.
 
-INSERT INTO clientes
-(apellidos, nombres, telefono, correo, dni, direccion) VALUES
-('Torres Peña', 'Maria', '987654321', 'maria@gmail.com', '11221122', 'Chincha Alta'),
-('Carbajal Sotelo', 'Rocio', '963852741', 'rocio@gmail.com', '74185263', 'Pueblo Nuevo')
-GO
+| Método | Ruta | Resultado |
+| --- | --- | --- |
+| GET | /api/proveedores?buscar=texto | 200, lista filtrada por nombre o RUC |
+| GET | /api/proveedores/{id} | 200 o 404 |
+| POST | /api/proveedores | 201 con entidad y Location; 400 inválido, 409 RUC repetido |
+| PUT | /api/proveedores/{id} | 204; 400 IDs distintos/datos inválidos, 404 inexistente, 409 RUC repetido |
+| DELETE | /api/proveedores/{id} | 204 o 404 |
 
-SELECT * FROM clientes
-GO
+ClientesApipe/Proveedores.http contiene solicitudes para probar en Visual Studio.
 
-CREATE TABLE productos
-(
-	id				INT IDENTITY(1,1) PRIMARY KEY,
-	nombre			NVARCHAR(70)		NOT NULL,
-	descripcion		NVARCHAR(70)		NOT NULL,
-	precio			DECIMAL(7,2)		NOT NULL,
-	garantia		TINYINT				NOT NULL,
-	numserie		NVARCHAR(40)		NULL
+## Flujo con el escritorio y autenticación
 
-)
-GO
+Iniciar primero la API y mantenerla abierta. Luego ejecutar el proyecto UI de AppDemoClientes. FrmMain abre Clientes o Proveedores.
 
-INSERT INTO productos
-	(nombre, descripcion, precio, garantia, numserie) VALUES
-	('Teclado', 'Logitech negro USB', 75, 12, 'ABC-12345'),
-	('Mouse', 'Genius USB', 40, 6, 'NULL')
-GO
+Para reproducir el flujo sin login que ya tenía el RAR, Clientes, Productos y Proveedores se mantienen accesibles sin token. Esto difiere del ZIP antiguo ClientesApipe, que protegía Clientes con JWT y la eliminación con rol Admin. Los endpoints /api/auth/registrar y /api/auth/login y la validación JWT se conservan. Si se vuelven a proteger los mantenimientos, el escritorio también necesitará login y envío de Bearer token. La clave JWT incluida es solo de ejemplo para desarrollo local.
 
-SELECT * FROM productos
-GO
+## Verificación realizada
+
+- La API y el escritorio compilaron con .NET 10, sin errores ni advertencias.
+- Pasaron 23 comprobaciones contra el controlador real por HTTP con EF Core InMemory y las capas BOL/DAL reales del escritorio: CRUD, búsqueda, RUC duplicado, límites de campos, IDs y registros inexistentes.
+- No se ejecutó SQL Server ni se operaron visualmente los formularios. La base en memoria se usó solamente en las pruebas, no está activada en la API entregada. Para usar la entrega se necesita SQL Server.

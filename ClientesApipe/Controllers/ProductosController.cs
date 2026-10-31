@@ -1,9 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using ClientesApipe.Data;
-using Microsoft.EntityFrameworkCore;
 using ClientesApipe.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ClientesApipe.Controllers
 {
@@ -25,79 +23,104 @@ namespace ClientesApipe.Controllers
             return Ok(productos);
         }
 
+        //Get : api/productos/1 -> Busca productos por su id
         [HttpGet("{id:int}")]
         public async Task<ActionResult<Producto>> ObtenerPorId(int id)
         {
             var producto = await _context.Productos.FindAsync(id);
+
             if (producto == null)
             {
-                return NotFound(new { mensaje = $"No existe el producto con ID: {id}" });
+                //error 404
+                return NotFound(new { mensaje = $"No existe el producto con ID : {id}" });
             }
 
+            //Ok (metodo 200)
             return Ok(producto);
         }
 
+        //POST : api/prodcutos -> registrar
         [HttpPost]
         public async Task<ActionResult<Producto>> Registrar([FromBody] Producto producto)
         {
+            //Evitar que el cliente envie un ID manualmente 
             producto.Id = 0;
 
+            //Validar que el numserie no esta repetido (solo si numserie no viene nulo o vacio)
+            if (!string.IsNullOrEmpty(producto.Numserie) &&
+                await _context.Productos.AnyAsync(p => p.Numserie == producto.Numserie))
+            {
+                //Error 409
+                return Conflict(new { mensaje = "Ya existe un producto con ese numero de serie " });
+            }
+
+            //Procedemos al registro 
             _context.Productos.Add(producto);
             await _context.SaveChangesAsync();
 
-            return Ok(new { mensaje = "Producto registrado con éxito", producto });
+            //Server code 201 (save ok) - Ejecutamos en segundo plano el buscador por id , pasamos el id entrada , modelo 
+            return CreatedAtAction(nameof(ObtenerPorId), new { id = producto.Id }, producto);
         }
+
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Actualizar(int id, [FromBody] Producto producto)
         {
+            // Validacion simple para el Id
             if (id != producto.Id)
             {
-                return BadRequest(new { mensaje = "El ID de la URL no coincide con el ID del cuerpo" });
+                //Server code 400
+                return BadRequest(new { mensaje = "El ID de la url no coincide con el id del cuerpo " });
             }
 
-            var existente = await _context.Productos.FindAsync(id);
+            //Validacion 2: ¿Existe el id?
+            var existente = await _context.Productos.FindAsync(id); //FindAsync buscador por el key 
 
             if (existente == null)
             {
-                return NotFound(new { mensaje = $"No existe producto con ID: {id}" });
+                //server cod 404
+                return NotFound(new { mensaje = $"No existe producto con id: {id}" });
             }
 
-            // Actualizamos los campos
+            //Validacion 3: conflicto numserie repetido (solo si viene un numero de serie)
+            if (!string.IsNullOrEmpty(producto.Numserie) &&
+                await _context.Productos.AnyAsync(p => p.Numserie == producto.Numserie && p.Id != id))
+            {
+                //Error 409
+                return Conflict(new { mensaje = "Ya existe un producto con ese numero de serie " });
+            }
+
+            //Procedemos a realizar la actualizacion
             existente.Nombre = producto.Nombre;
             existente.Descripcion = producto.Descripcion;
             existente.Precio = producto.Precio;
             existente.Garantia = producto.Garantia;
             existente.Numserie = producto.Numserie;
 
-            await _context.SaveChangesAsync();
+            //Ahora confirmemos los cambios utilizando el contenedor "existente"
+            await _context.SaveChangesAsync(); // esta enlazado a <<<FindAsync>>>
 
-            // CAMBIO AQUÍ: Ahora retornará un mensaje de éxito y los datos modificados
-            return Ok(new
-            {
-                mensaje = "¡Producto modificado con éxito!",
-                productoActualizado = existente
-            });
+            //Server code 204
+            return NoContent();
         }
 
-        // DELETE: api/productos/1 -> Eliminar un producto
         [HttpDelete("{id:int}")]
-        public async Task<ActionResult> Eliminar(int id)
+        public async Task<IActionResult> Eliminar(int id)
         {
             var producto = await _context.Productos.FindAsync(id);
             if (producto == null)
             {
-                return NotFound(new { mensaje = $"No existe producto con ID: {id}" });
+                //server code 404
+                return NotFound(new { mensaje = $"No existe producto con ID : {id}" });
             }
 
             _context.Productos.Remove(producto);
             await _context.SaveChangesAsync();
 
-            // CAMBIO AQUÍ: Ahora retornará un mensaje de confirmación en formato JSON
-            return Ok(new
-            {
-                mensaje = "¡Producto eliminado con éxito!",
-                idEliminado = id
-            });
+            //Server code 204 (accion ejecutada correctamente)
+            return NoContent();
         }
+
     }
 }
+
+

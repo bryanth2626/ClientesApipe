@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -14,12 +14,12 @@ namespace ClientesApipe.Models
         public int Id { get; set; }
         [Required, StringLength(50)]
         [Column("username")]
-        public string Username { get; set; }
+        public string Username { get; set; } = string.Empty;
         [Required, StringLength(200)]
         [Column("passwordhash")]
-        public string PasswordHash { get; set; }
+        public string PasswordHash { get; set; } = string.Empty;
         [Required, StringLength(30)]
         [Column("rol")]
-        public string Rol {  get; set; }
+        public string Rol {  get; set; } = string.Empty;
     }
 }
